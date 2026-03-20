@@ -17,6 +17,8 @@ type Config struct {
 	Storage       StorageConfig
 	Geospatial    GeospatialConfig
 	Settings      SettingsConfig
+	Auth          AuthConfig
+	Redis         RedisConfig
 }
 
 // ElasticsearchConfig holds configuration for Elasticsearch
@@ -57,6 +59,23 @@ type GeospatialConfig struct {
 	TileCacheTTL      string
 }
 
+type AuthConfig struct {
+	JWTSecret                string
+	JWTAccessTokenExpiry     string
+	JWTRefreshTokenExpiry    string
+	PasswordHashCost         int
+	EmailVerificationURL     string
+	PasswordResetURL         string
+	StellarNetworkPassphrase string
+}
+
+type RedisConfig struct {
+	Host     string
+	Port     string
+	Password string
+	DB       int
+}
+
 // Load loads configuration from environment variables
 func Load() (*Config, error) {
 	port := os.Getenv("PORT")
@@ -79,6 +98,20 @@ func Load() (*Config, error) {
 	maxUpload, _ := strconv.ParseInt(os.Getenv("MAX_UPLOAD_SIZE_MB"), 10, 64)
 	if maxUpload <= 0 {
 		maxUpload = 100
+	}
+
+	passwordHashCost := 12
+	if cost := os.Getenv("PASSWORD_HASH_COST"); cost != "" {
+		if parsedCost, err := strconv.Atoi(cost); err == nil && parsedCost > 0 {
+			passwordHashCost = parsedCost
+		}
+	}
+
+	redisDBAbc := 0
+	if dbStr := os.Getenv("REDIS_DB"); dbStr != "" {
+		if parsedDB, err := strconv.Atoi(dbStr); err == nil {
+			redisDBAbc = parsedDB
+		}
 	}
 
 	return &Config{
@@ -114,6 +147,21 @@ func Load() (*Config, error) {
 			EncryptionKeyHex: os.Getenv("SETTINGS_ENCRYPTION_KEY_HEX"),
 			APIKeyPrefix:     getEnvOrDefault("SETTINGS_API_KEY_PREFIX", "ppk_live"),
 			ProfileCDNBase:   getEnvOrDefault("SETTINGS_PROFILE_CDN_BASE", "https://cdn.carbonscribe.local"),
+		},
+		Auth: AuthConfig{
+			JWTSecret:                getEnvOrDefault("JWT_SECRET", "your-secret-key-change-in-production"),
+			JWTAccessTokenExpiry:     getEnvOrDefault("JWT_ACCESS_TOKEN_EXPIRY", "15m"),
+			JWTRefreshTokenExpiry:    getEnvOrDefault("JWT_REFRESH_TOKEN_EXPIRY", "7d"),
+			PasswordHashCost:         passwordHashCost,
+			EmailVerificationURL:     getEnvOrDefault("EMAIL_VERIFICATION_URL", "https://app.carbonscribe.local/verify-email"),
+			PasswordResetURL:         getEnvOrDefault("PASSWORD_RESET_URL", "https://app.carbonscribe.local/reset-password"),
+			StellarNetworkPassphrase: getEnvOrDefault("STELLAR_NETWORK_PASSPHRASE", "Test SDF Network ; September 2015"),
+		},
+		Redis: RedisConfig{
+			Host:     getEnvOrDefault("REDIS_HOST", "localhost"),
+			Port:     getEnvOrDefault("REDIS_PORT", "6379"),
+			Password: os.Getenv("REDIS_PASSWORD"),
+			DB:       redisDBAbc,
 		},
 	}, nil
 }

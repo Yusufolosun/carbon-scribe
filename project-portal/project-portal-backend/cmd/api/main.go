@@ -76,19 +76,20 @@ func main() {
 	searchService := search.NewService(searchRepo)
 	searchHandler := search.NewHandler(searchService)
 
-	authHandler := &auth.Handler{}
+	// Parse JWT token expiries
+	accessTokenExpiry := parseDuration(cfg.Auth.JWTAccessTokenExpiry, 15*time.Minute)
+	refreshTokenExpiry := parseDuration(cfg.Auth.JWTRefreshTokenExpiry, 7*24*time.Hour)
 
-	collabRepo := collaboration.NewRepository(db)
-	collabService := collaboration.NewService(collabRepo)
-	collabHandler := collaboration.NewHandler(collabService)
+	// Initialize auth components
+	tokenManager := auth.NewTokenManager(cfg.Auth.JWTSecret, accessTokenExpiry, refreshTokenExpiry)
+	stellarAuth := auth.NewStellarAuthenticator(cfg.Auth.StellarNetworkPassphrase, 15*time.Minute)
+	authRepo := auth.NewRepository(db)
+	authService := auth.NewService(authRepo, tokenManager, stellarAuth, cfg.Auth.PasswordHashCost)
+	authHandler := auth.NewHandler(authService)
 
 	healthRepo := health.NewRepository(db)
 	healthService := health.NewService(healthRepo)
 	healthHandler := health.NewHandler(healthService)
-
-	integrationRepo := integration.NewRepository(db)
-	integrationService := integration.NewService(integrationRepo)
-	integrationHandler := integration.NewHandler(integrationService)
 
 	reportsRepo := reports.NewRepository(db)
 	reportsService := reports.NewService(reportsRepo, nil) // Exporter can be added later
@@ -177,7 +178,7 @@ func main() {
 			"version": "1.0.0",
 			"endpoints": gin.H{
 				"health":        "/health",
-				"auth":          "/api/auth/*",
+				"auth":          "/api/v1/auth/*",
 				"collaboration": "/api/collaboration/*",
 				"documents":     "/api/v1/documents/*",
 				"compliance":    "/api/v1/compliance/*",
@@ -190,18 +191,13 @@ func main() {
 		})
 	})
 
-	// Auth routes
-	auth.RegisterRoutes(router, authHandler)
-
-	// Collaboration routes
-	collaboration.RegisterRoutes(router, collabHandler)
-
-	// Integration routes
-	integration.RegisterRoutes(router, integrationHandler)
-
-	// API v1 routes (for reports and future APIs)
+	// API v1 routes (for auth, reports and other APIs)
 	v1 := router.Group("/api/v1")
 	{
+		// Register auth routes under v1
+		authGroup := v1.Group("/auth")
+		auth.RegisterAuthRoutes(authGroup, authHandler, tokenManager)
+
 		// Register projects routes under v1
 		projectHandler.RegisterRoutes(v1)
 
@@ -251,7 +247,7 @@ func main() {
 		fmt.Printf("📡 Listening on http://localhost:%s\n", cfg.Port)
 		fmt.Printf("📊 Health check: http://localhost:%s/health\n", cfg.Port)
 		fmt.Println("🔗 Available endpoints:")
-		fmt.Println("   - Authentication: /api/auth/*")
+		fmt.Println("   - Authentication: /api/v1/auth/*")
 		fmt.Println("   - Collaboration: /api/collaboration/*")
 		fmt.Println("   - System health metrics: /api/v1/health/*")
 		fmt.Println("   - Documents:       /api/v1/documents/*")
@@ -320,6 +316,13 @@ func initDatabase(config *config.Config) (*gorm.DB, error) {
 func runAllMigrations(db *gorm.DB) error {
 	// Auto-migrate all models from all modules
 	err := db.AutoMigrate(
+		// Auth models
+		&auth.User{},
+		&auth.UserSession{},
+		&auth.UserWallet{},
+		&auth.AuthToken{},
+		&auth.RolePermission{},
+
 		// Project models
 		&project.Project{},
 
@@ -532,4 +535,18 @@ func corsMiddleware() gin.HandlerFunc {
 
 		c.Next()
 	}
+}
+
+// parseDuration parses a duration string (e.g., "24h", "30m", "15s")
+func parseDuration(durationStr string, defaultDuration time.Duration) time.Duration {
+	if durationStr == "" {
+		return defaultDuration
+	}
+
+	duration, err := time.ParseDuration(durationStr)
+	if err != nil {
+		return defaultDuration
+	}
+
+	return duration
 }
