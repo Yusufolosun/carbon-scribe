@@ -137,6 +137,10 @@ func main() {
 	complianceService := compliance.NewService(complianceRepo)
 	complianceHandler := compliance.NewHandler(complianceService)
 
+	collaborationRepo := collaboration.NewRepository(db)
+	collaborationService := collaboration.NewService(collaborationRepo)
+	collaborationHandler := collaboration.NewHandler(collaborationService)
+
 	geospatialRepo := geospatial.NewRepository(db)
 	geospatialService := geospatial.NewService(geospatialRepo)
 	geospatialHandler := geospatial.NewHandler(geospatialService)
@@ -183,7 +187,7 @@ func main() {
 			"endpoints": gin.H{
 				"health":        "/health",
 				"auth":          "/api/v1/auth/*",
-				"collaboration": "/api/collaboration/*",
+				"collaboration": "/api/v1/collaboration/*",
 				"documents":     "/api/v1/documents/*",
 				"compliance":    "/api/v1/compliance/*",
 				"integration":   "/api/integration/*",
@@ -227,6 +231,9 @@ func main() {
 		// Register settings routes under v1
 		settingsHandler.RegisterRoutes(v1)
 
+		// Register collaboration routes under v1
+		collaboration.RegisterRoutes(v1, collaborationHandler)
+
 		// Register financing routes under v1
 		financingHandler.RegisterRoutes(v1)
 
@@ -256,7 +263,7 @@ func main() {
 		fmt.Printf("📊 Health check: http://localhost:%s/health\n", cfg.Port)
 		fmt.Println("🔗 Available endpoints:")
 		fmt.Println("   - Authentication: /api/v1/auth/*")
-		fmt.Println("   - Collaboration: /api/collaboration/*")
+		fmt.Println("   - Collaboration: /api/v1/collaboration/*")
 		fmt.Println("   - System health metrics: /api/v1/health/*")
 		fmt.Println("   - Documents:       /api/v1/documents/*")
 		fmt.Println("   - Integrations: /api/integration/*")
