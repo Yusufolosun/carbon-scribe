@@ -246,3 +246,35 @@ AWS_REGION=us-east-1
 AWS_S3_BUCKET=carbon-documents
 ```
 
+## Methodology NFT Registration Flow
+
+Project onboarding now supports registration of project methodologies in the Methodology Library contract as NFTs.
+
+Contract details:
+- Contract ID: `CDQXMVTNCAN4KKPFOAMAAKU4B7LNNQI7F6EX2XIGKVNPJPKGWGM35BTP`
+- Functionality: `mint_methodology`, `is_valid_methodology`
+
+Flow:
+1. Create a project with optional `methodology` payload.
+2. Backend mints a methodology NFT for the project owner/developer.
+3. Returned `methodology_token_id` and `methodology_contract_id` are linked on the project.
+4. Registration is stored in `methodology_registrations`.
+5. Credit minting validates the linked methodology token before proceeding.
+
+New endpoints:
+- `POST /api/v1/projects/:id/register-methodology`
+- `GET /api/v1/projects/:id/methodology`
+- `GET /api/v1/methodologies/:tokenId/validate`
+
+Environment variables:
+```bash
+STELLAR_RPC_URL=https://soroban-testnet.stellar.org:443
+STELLAR_NETWORK_PASSPHRASE=Test SDF Network ; September 2015
+METHODOLOGY_LIBRARY_CONTRACT_ID=CDQXMVTNCAN4KKPFOAMAAKU4B7LNNQI7F6EX2XIGKVNPJPKGWGM35BTP
+METHODOLOGY_AUTHORITY_SECRET_KEY=your_whitelisted_methodology_authority_secret_key
+METHODOLOGY_USE_MOCK=false
+METHODOLOGY_MOCK_START_TOKEN=1000
+```
+
+The deployed contract only allows whitelisted authority accounts to mint methodologies, so live testnet registration requires a funded authority secret key already approved by the contract admin.
+
