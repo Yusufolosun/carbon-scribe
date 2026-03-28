@@ -966,10 +966,14 @@ model SyncedMethodology {
   id              String   @id @default(cuid())
   tokenId         Int      @unique
   name            String
-  description     String?
-  registry        String?
-  category        String?
-  authority       String?
+  version         String
+  registry        String
+  registryLink    String
+  issuingAuthority String
+  ipfsCid         String?
+  isActive        Boolean  @default(true)
+  lastSyncedAt    DateTime @default(now())
+  syncedFromBlock Int
   mappings        FrameworkMethodologyMapping[]
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
